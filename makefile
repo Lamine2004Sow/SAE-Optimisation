@@ -5,16 +5,16 @@ PIP = $(VENV)/bin/pip
 SYSTEM_PYTHON = python3
 
 # Commandes par défaut (Aide)
-.PHONY: help install install-sys clean run-heuristique run-meta run-exact
+.PHONY: help install clean run-heuristique run-meta run-exact run-visualize
 
 help:
 	@echo "--- Makefile SAÉ Optimisation (Mode Venv) ---"
 	@echo "Commandes disponibles :"
 	@echo "  make install          : Crée le venv et installe les dépendances"
-	@echo "  make install-sys      : Installe GLPK (sudo requis)"
 	@echo "  make run-heuristique  : Lance l'heuristique"
 	@echo "  make run-meta         : Lance la métaheuristique"
 	@echo "  make run-exact        : Lance la méthode exacte"
+	@echo "  make run-visualize    : Lance la visualisation"
 	@echo "  make clean            : Nettoie les fichiers temporaires"
 
 # Installation : Crée le venv et installe les libs DEDANS
@@ -22,10 +22,9 @@ install:
 	$(SYSTEM_PYTHON) -m venv $(VENV)
 	$(PIP) install -r requirements.txt
 
-# Installation GLPK (Système)
-install-sys:
-	sudo apt-get update && sudo apt-get install -y glpk-utils
-
+# Visualisation : Crée le fichier de visualisation du Graphe et de l'Itinéraire
+run-visualisation:
+	$(PYTHON) visualisation.py ulysses16.tsp 5
 # Nettoyage
 clean:
 	rm -rf __pycache__
