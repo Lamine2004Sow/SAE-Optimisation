@@ -20,12 +20,15 @@ def afficherGraphe(graphe):
     nx.draw(graphe, with_labels=True)
     plt.show()
 
+# Fonction pour obtenir la matrice de distances
+def obtenirMatriceDistances(graphe):
+    return nx.to_numpy_array(graphe)
 
 
-"""
+
+
 if __name__ == "__main__":
     probleme = chargerInstance(sys.argv[1])
     print(probleme.render())
     graphe = creerGraphe(probleme)
     afficherGraphe(graphe) 
-"""

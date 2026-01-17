@@ -3,3 +3,4 @@ pulp
 numpy
 networkx
 tsplib95
+pandas
