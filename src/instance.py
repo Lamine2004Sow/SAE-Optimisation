@@ -17,32 +17,36 @@ def creerGraphe(probleme):
     return g
 
 # Fonction pour afficher le graphe
-def afficherGraphe(graphe):
-    nx.draw(graphe, with_labels=True)
+def afficherGraphe(graphe, probleme):
+    coords = probleme.node_coords
+    nx.draw(graphe, coords,with_labels=True)
+    plt.savefig("img/"+probleme.name+".png")
     plt.show()
+    plt.close()
+
 
 # Fonction pour obtenir la matrice de distances
 def obtenirMatriceDistances(probleme):
 
     coords = probleme.node_coords
-    neuds = list(coords.keys())
+    noeuds = list(coords.keys())
 
-    maticeDist = {}
+    matriceDist = {i: {} for i in noeuds}
 
-    for i in neuds:
-        for j in neuds:
+    for i in noeuds:
+        xi, yi = coords[i]
+        for j in noeuds:
             if i == j:
-                maticeDist[i, j] = 0
+                matriceDist[i][j] = 0
             else:
-                xi, yi = coords[i]
                 xj, yj = coords[j]
-                maticeDist[i, j] = np.sqrt((xi - xj)**2 + (yi - yj)**2)
+                matriceDist[i][j] = np.sqrt((xi - xj)**2 + (yi - yj)**2)
 
-    return maticeDist
+    return matriceDist
 
 if __name__ == "__main__":
     probleme = chargerInstance("data/ulysses16.tsp")
     graphe = creerGraphe(probleme)
-    afficherGraphe(graphe)
+    afficherGraphe(graphe, probleme)
     matriceDistances = obtenirMatriceDistances(probleme)
     print(matriceDistances)
