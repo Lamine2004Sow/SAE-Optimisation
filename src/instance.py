@@ -19,7 +19,17 @@ def creerGraphe(probleme):
 # Fonction pour afficher le graphe
 def afficherGraphe(graphe, probleme):
     coords = probleme.node_coords
-    nx.draw(graphe, coords,with_labels=True)
+    pos = {}
+    if coords:
+        # Utilise les coordonnées de l'instance quand elles existent
+        for node in graphe.nodes():
+            if node in coords:
+                pos[node] = coords[node]
+
+    if len(pos) != len(graphe.nodes()):
+        pos = nx.spring_layout(graphe, seed=4)
+
+    nx.draw(graphe, pos, with_labels=True)
     plt.savefig("img/"+probleme.name+".png")
     plt.show()
     plt.close()
@@ -45,7 +55,7 @@ def obtenirMatriceDistances(probleme):
     return matriceDist
 
 if __name__ == "__main__":
-    probleme = chargerInstance("data/ulysses16.tsp")
+    probleme = chargerInstance(sys.argv[1])
     graphe = creerGraphe(probleme)
     afficherGraphe(graphe, probleme)
     matriceDistances = obtenirMatriceDistances(probleme)
