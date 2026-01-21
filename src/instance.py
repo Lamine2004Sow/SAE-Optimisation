@@ -1,4 +1,3 @@
-from tokenize import cookie_re
 import tsplib95 as tsp
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -26,7 +25,7 @@ def afficherGraphe(graphe):
 def obtenirMatriceDistances(probleme):
 
     coords = probleme.node_coords
-    neuds = probleme.list(coords.keys())
+    neuds = list(coords.keys())
 
     maticeDist = {}
 
@@ -39,4 +38,11 @@ def obtenirMatriceDistances(probleme):
                 xj, yj = coords[j]
                 maticeDist[i, j] = np.sqrt((xi - xj)**2 + (yi - yj)**2)
 
-    return maticeDist, coords, neuds
+    return maticeDist
+
+if __name__ == "__main__":
+    probleme = chargerInstance("data/ulysses16.tsp")
+    graphe = creerGraphe(probleme)
+    afficherGraphe(graphe)
+    matriceDistances = obtenirMatriceDistances(probleme)
+    print(matriceDistances)
