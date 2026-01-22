@@ -5,7 +5,7 @@ PIP = $(VENV)/bin/pip
 SYSTEM_PYTHON = python3
 
 FILE ?= ulysses16.tsp
-K ?= 6
+K ?= 6 # Nombre de stations
 
 .PHONY: help install clean run-heuristique run-meta run-exact run-visualisation
 
@@ -35,16 +35,16 @@ install:
 # --- Exécutions ---
 
 run-heuristique:
-	$(PYTHON) heuristique.py $(FILE) $(K)
+	$(PYTHON) src/heuristique.py $(FILE) $(K)
 
 run-meta:
-	$(PYTHON) metaheuristique.py $(FILE) $(K)
+	$(PYTHON) src/metaheuristique.py $(FILE) $(K)
 
 run-exact:
-	$(PYTHON) exactPlne.py $(FILE) $(K)
+	$(PYTHON) src/exactPlne.py $(FILE) $(K)
 
 run-visualisation:
-	$(PYTHON) visualisation.py $(FILE) $(K)
+	$(PYTHON) src/visualisation.py $(FILE) $(K)
 
 # Nettoyage
 clean:
