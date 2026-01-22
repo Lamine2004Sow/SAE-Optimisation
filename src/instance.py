@@ -40,8 +40,8 @@ def obtenirMatriceDistances(probleme):
 
     coords = probleme.node_coords
     noeuds = list(coords.keys())
-
-    matriceDist = {i: {} for i in noeuds}
+    
+    matriceDist = np.zeros((n, n))
 
     for i in noeuds:
         xi, yi = coords[i]
@@ -51,7 +51,7 @@ def obtenirMatriceDistances(probleme):
             else:
                 xj, yj = coords[j]
                 matriceDist[i][j] = np.sqrt((xi - xj)**2 + (yi - yj)**2)
-
+    
     return matriceDist
 
 if __name__ == "__main__":
