@@ -2,8 +2,7 @@ import tsplib95 as tsp
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
-import pulp
-import random
+import os
 import sys
 
 # Fonction pour charger une instance de TSP
@@ -30,33 +29,85 @@ def afficherGraphe(graphe, probleme):
         pos = nx.spring_layout(graphe, seed=4)
 
     nx.draw(graphe, pos, with_labels=True)
-    plt.savefig("img/"+probleme.name+".png")
+    
+    # Créer le répertoire img/ s'il n'existe pas
+    img_dir = "img"
+    if not os.path.exists(img_dir):
+        # Essayer aussi ../img/ si on est dans src/
+        if os.path.exists(os.path.join("..", "img")):
+            img_dir = os.path.join("..", "img")
+        else:
+            os.makedirs(img_dir, exist_ok=True)
+    
+    img_path = os.path.join(img_dir, probleme.name + ".png")
+    plt.savefig(img_path)
+    print(f"Graphe sauvegardé: {img_path}")
     plt.show()
     plt.close()
 
 
 # Fonction pour obtenir la matrice de distances
 def obtenirMatriceDistances(probleme):
-
-    coords = probleme.node_coords
-    noeuds = list(coords.keys())
-
-    matriceDist = {i: {} for i in noeuds}
-
-    for i in noeuds:
-        xi, yi = coords[i]
-        for j in noeuds:
+    """
+    Retourne la matrice de distances sous forme de numpy array.
+    Utilise le graphe pour obtenir les distances si disponibles,
+    sinon calcule à partir des coordonnées.
+    """
+    graphe = creerGraphe(probleme)
+    noeuds = sorted(graphe.nodes())
+    n = len(noeuds)
+    
+    # Créer la matrice numpy
+    matriceDist = np.zeros((n, n))
+    
+    for i, node_i in enumerate(noeuds):
+        for j, node_j in enumerate(noeuds):
             if i == j:
                 matriceDist[i][j] = 0
             else:
-                xj, yj = coords[j]
-                matriceDist[i][j] = np.sqrt((xi - xj)**2 + (yi - yj)**2)
-
-    return matriceDist
-
+                # Utiliser le poids de l'arête du graphe
+                if graphe.has_edge(node_i, node_j):
+                    matriceDist[i][j] = graphe[node_i][node_j].get('weight', 0)
+                else:
+                    # Si pas d'arête, calculer depuis les coordonnées
+                    coords = probleme.node_coords
+                    if coords and node_i in coords and node_j in coords:
+                        xi, yi = coords[node_i]
+                        xj, yj = coords[node_j]
+                        matriceDist[i][j] = np.sqrt((xi - xj)**2 + (yi - yj)**2)
+    
+    return matriceDist, noeuds
+    
 if __name__ == "__main__":
-    probleme = chargerInstance(sys.argv[1])
+    if len(sys.argv) < 2:
+        print("Usage: python instance.py <fichier.tsp>")
+        sys.exit(1)
+    
+    fichier_tsp = sys.argv[1]
+    
+    # Chercher le fichier dans différents emplacements possibles
+    if not os.path.exists(fichier_tsp):
+        # Essayer dans data/
+        chemin_test = os.path.join("data", fichier_tsp)
+        if os.path.exists(chemin_test):
+            fichier_tsp = chemin_test
+        else:
+            # Essayer dans ../data/ (si on est dans src/)
+            chemin_test = os.path.join("..", "data", fichier_tsp)
+            if os.path.exists(chemin_test):
+                fichier_tsp = chemin_test
+    
+    if not os.path.exists(fichier_tsp):
+        print(f"Erreur: fichier {fichier_tsp} introuvable")
+        sys.exit(1)
+    
+    probleme = chargerInstance(fichier_tsp)
+    print(f"Instance chargée: {probleme.name}")
+    print(f"Dimension: {probleme.dimension}")
+    
     graphe = creerGraphe(probleme)
-    afficherGraphe(graphe, probleme)
-    matriceDistances = obtenirMatriceDistances(probleme)
-    print(matriceDistances)
+    print(f"Graphe créé: {graphe.number_of_nodes()} nœuds, {graphe.number_of_edges()} arêtes")
+    
+    matriceDistances, noeuds = obtenirMatriceDistances(probleme)
+    print(f"Matrice de distances: {matriceDistances.shape}")
+    print(f"Première ligne: {matriceDistances[0, :5]}")

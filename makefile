@@ -1,6 +1,7 @@
 # Variables
 VENV = .venv
 PYTHON = $(VENV)/bin/python3
+PYTHON_SRC = ../$(VENV)/bin/python3
 PIP = $(VENV)/bin/pip
 SYSTEM_PYTHON = python3
 
@@ -32,7 +33,7 @@ install:
 
 # Visualisation : Crée le fichier de visualisation du Graphe et de l'Itinéraire
 run-visualisation:
-	$(PYTHON) visualisation.py ulysses16.tsp 5
+	cd src && $(PYTHON_SRC) visualisation.py ../data/ulysses16.tsp 4
 # Nettoyage
 clean:
 	rm -rf __pycache__
@@ -42,10 +43,10 @@ clean:
 # --- Exécution (Utilise le python du venv) ---
 
 run-heuristique:
-	$(PYTHON) heuristique.py st70.tsp 10
+	cd src && $(PYTHON_SRC) heuristique.py ../data/ulysses16.tsp 4
 
 run-meta:
-	$(PYTHON) metaheuristique.py st70.tsp 10
+	cd src && $(PYTHON_SRC) metaheuristique.py ../data/ulysses16.tsp 5
 
 run-exact:
-	$(PYTHON) exactPlne.py ulysses16.tsp 5
+	cd src && $(PYTHON_SRC) exactPlne.py ../data/ulysses16.tsp 5 300
