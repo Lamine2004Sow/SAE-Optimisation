@@ -3,45 +3,37 @@ import time
 
 from instance import (
     chargerInstance,
-    heuristique_rapide,
+    heuristique_rapide_optimisee,
     afficherSolution,
-    obtenirMatriceDistances,
-    cout_solution,
 )
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage : python heuristique.py <fichier.tsp> <K>")
+    if len(sys.argv) < 2:
+        print("Usage : python heuristique.py <fichier.tsp>")
         sys.exit(1)
 
     fichier = sys.argv[1]
-    try:
-        p = int(sys.argv[2])
-    except ValueError:
-        print("K doit être un entier.")
-        sys.exit(1)
 
     # Les fichiers .tsp sont dans le dossier data/
     chemin = f"data/{fichier}"
 
     probleme = chargerInstance(chemin)
 
-    print(f"=== Heuristique rapide ===")
-    print(f"Fichier : {fichier}, K = {p}")
+    print(f"=== Heuristique rapide (avec optimisation du nombre de stations) ===")
+    print(f"Fichier : {fichier}, Nombre de nœuds : {len(probleme.node_coords)}")
     
     debut = time.time()
-    cycle, stations = heuristique_rapide(probleme, p)
+    p_optimal, cycle, stations, cout = heuristique_rapide_optimisee(probleme)
     temps = time.time() - debut
 
-    matrice, index_to_node, node_to_index = obtenirMatriceDistances(probleme)
-    cout = cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_index)
-
+    print(f"\n=== Résultat ===")
+    print(f"Nombre optimal de stations : {p_optimal}")
     print(f"Coût de la solution : {cout:.2f}")
     print(f"Temps de résolution : {temps:.4f} secondes")
     print(f"Stations : {stations}")
     
-    afficherSolution(probleme, cycle, stations)
+    afficherSolution(probleme, cycle, stations, methode="heuristique")
 
 
 if __name__ == "__main__":

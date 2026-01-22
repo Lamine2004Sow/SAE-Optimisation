@@ -5,7 +5,6 @@ PIP = $(VENV)/bin/pip
 SYSTEM_PYTHON = python3
 
 FILE ?= ulysses16.tsp
-K ?= 6 # Nombre de stations
 
 .PHONY: help install clean run-heuristique run-meta run-exact run-visualisation
 
@@ -14,10 +13,10 @@ help:
 	@echo "--- Makefile SAÉ Optimisation (Mode Venv) ---"
 	@echo "Commandes disponibles :"
 	@echo "  make install                     : Crée le venv et installe les dépendances"
-	@echo "  make run-heuristique FILE=... K=... : Lance l'heuristique"
-	@echo "  make run-meta FILE=... K=...        : Lance la métaheuristique"
-	@echo "  make run-exact FILE=... K=...       : Lance la méthode exacte"
-	@echo "  make run-visualisation FILE=... K=... : Lance la visualisation"
+	@echo "  make run-heuristique FILE=...    : Lance l'heuristique (K calculé automatiquement)"
+	@echo "  make run-meta FILE=...            : Lance la métaheuristique (K calculé automatiquement)"
+	@echo "  make run-exact FILE=...           : Lance la méthode exacte (K calculé automatiquement)"
+	@echo "  make run-visualisation FILE=...   : Lance la visualisation (K calculé automatiquement)"
 	@echo "  make clean                       : Nettoie les fichiers temporaires"
 
 # Installation
@@ -35,16 +34,16 @@ install:
 # --- Exécutions ---
 
 run-heuristique:
-	$(PYTHON) src/heuristique.py $(FILE) $(K)
+	$(PYTHON) src/heuristique.py $(FILE)
 
 run-meta:
-	$(PYTHON) src/metaheuristique.py $(FILE) $(K)
+	$(PYTHON) src/metaheuristique.py $(FILE)
 
 run-exact:
-	$(PYTHON) src/exactPlne.py $(FILE) $(K)
+	$(PYTHON) src/exactPlne.py $(FILE)
 
 run-visualisation:
-	$(PYTHON) src/visualisation.py $(FILE) $(K)
+	$(PYTHON) src/visualisation.py $(FILE)
 
 # Nettoyage
 clean:

@@ -1,7 +1,7 @@
 matplotlib
 pulp
-numpy
-networkx
+numpy>=2.0
+networkx>=3.4
 tsplib95
 pandas
 scipy
