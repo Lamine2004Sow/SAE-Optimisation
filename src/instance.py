@@ -5,11 +5,105 @@ import numpy as np
 import pulp
 import random
 import sys
+import math
+import os
 
 # Fonction pour charger une instance de TSP
 def chargerInstance(fichier):
     probleme = tsp.load(fichier)
     return probleme
+
+# Fonction pour calculer automatiquement le nombre de stations K
+# Formule : K = max(3, ⌈√n⌉) où n est le nombre de nœuds
+# Cela garantit K >= 3 et est proportionnel à la taille de l'instance
+# NOTE: Cette fonction donne une valeur initiale, mais pour vraiment minimiser le coût,
+# il faut utiliser optimiserNombreStations() qui teste différentes valeurs de p
+def calculerNombreStations(probleme):
+    n = len(probleme.node_coords)
+    k = max(3, math.ceil(math.sqrt(n)))
+    return k
+
+# Fonction pour optimiser le nombre de stations p en testant différentes valeurs
+# et en choisissant celle qui minimise le coût total
+# Pour les grandes instances, on teste un échantillon de valeurs autour de √n
+def optimiserNombreStations(probleme, methode_resolution, n_max_tests=None):
+    """
+    Optimise le nombre de stations p en testant différentes valeurs.
+    
+    Args:
+        probleme: Instance TSP
+        methode_resolution: Fonction qui prend (probleme, p) et retourne (cycle, stations) ou (cycle, stations, cout)
+        n_max_tests: Nombre maximum de valeurs de p à tester (None = tester toutes de 3 à n)
+    
+    Returns:
+        (p_optimal, cycle, stations, cout_optimal)
+    """
+    n = len(probleme.node_coords)
+    matrice, index_to_node, node_to_index = obtenirMatriceDistances(probleme)
+    
+    # Déterminer les valeurs de p à tester
+    if n_max_tests is None or n <= 50:
+        # Pour les petites instances, tester toutes les valeurs de 3 à n
+        valeurs_p = list(range(3, n + 1))
+    else:
+        # Pour les grandes instances, tester un échantillon autour de √n
+        p_centre = max(3, math.ceil(math.sqrt(n)))
+        # Tester autour de √n avec un rayon
+        rayon = min(n_max_tests // 2, n // 4)
+        valeurs_p = []
+        # Ajouter des valeurs autour de √n
+        for i in range(max(3, p_centre - rayon), min(n + 1, p_centre + rayon + 1)):
+            valeurs_p.append(i)
+        # Ajouter quelques valeurs aux extrémités
+        if 3 not in valeurs_p:
+            valeurs_p.append(3)
+        if n not in valeurs_p and n >= 3:
+            valeurs_p.append(n)
+        valeurs_p = sorted(set(valeurs_p))
+    
+    meilleur_p = None
+    meilleur_cycle = None
+    meilleures_stations = None
+    meilleur_cout = float('inf')
+    
+    print(f"Optimisation du nombre de stations : test de {len(valeurs_p)} valeurs de p...")
+    
+    for p in valeurs_p:
+        try:
+            result = methode_resolution(probleme, p)
+            # Gérer les deux formats de retour possibles
+            if len(result) == 3:
+                cycle, stations, cout = result
+            else:
+                cycle, stations = result
+                cout = cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_index)
+            
+            if cout < meilleur_cout:
+                meilleur_cout = cout
+                meilleur_p = p
+                meilleur_cycle = cycle
+                meilleures_stations = stations
+                print(f"  p={p}: coût={cout:.2f} ✓ (nouveau meilleur)")
+            else:
+                print(f"  p={p}: coût={cout:.2f}")
+        except Exception as e:
+            print(f"  p={p}: erreur - {e}")
+            continue
+    
+    if meilleur_p is None:
+        # Fallback : utiliser la valeur par défaut
+        p_default = calculerNombreStations(probleme)
+        result = methode_resolution(probleme, p_default)
+        if len(result) == 3:
+            cycle, stations, _ = result
+        else:
+            cycle, stations = result
+        meilleur_p = p_default
+        meilleur_cycle = cycle
+        meilleures_stations = stations
+        meilleur_cout = cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_index)
+    
+    return meilleur_p, meilleur_cycle, meilleures_stations, meilleur_cout
 
 # Fonction pour créer le graphe de l'instance
 def creerGraphe(probleme):
@@ -63,7 +157,7 @@ def obtenirMatriceDistances(probleme):
 
 
 # Affichage d'une solution anneau + étoiles
-def afficherSolution(probleme, cycle, stations):
+def afficherSolution(probleme, cycle, stations, methode="solution"):
     coords = probleme.node_coords
     pos = {node: (x, y) for node, (x, y) in coords.items()}
     graphe = nx.Graph()
@@ -98,13 +192,23 @@ def afficherSolution(probleme, cycle, stations):
         graphe.add_edge(c, best_station)
         edges_etoiles.append((c, best_station))
 
-    plt.figure()
-    nx.draw_networkx_nodes(graphe, pos, nodelist=stations, node_color="red")
+    plt.figure(figsize=(12, 10))
+    nx.draw_networkx_nodes(graphe, pos, nodelist=stations, node_color="red", node_size=100)
     nx.draw_networkx_nodes(graphe, pos, nodelist=clients, node_color="blue", node_size=50)
     nx.draw_networkx_edges(graphe, pos, edgelist=edges_metro, width=2, edge_color="red", style="solid")
     nx.draw_networkx_edges(graphe, pos, edgelist=edges_etoiles, width=1, edge_color="gray", style="dotted")
     nx.draw_networkx_labels(graphe, pos, font_size=8)
     plt.axis("equal")
+    plt.title(f"Solution {methode} - {probleme.name}")
+    
+    # Créer le dossier img/ s'il n'existe pas
+    os.makedirs("img", exist_ok=True)
+    
+    # Sauvegarder l'image
+    nom_fichier = f"img/Solution_{methode}_{probleme.name}.png"
+    plt.savefig(nom_fichier, dpi=150, bbox_inches='tight')
+    print(f"Schéma sauvegardé : {nom_fichier}")
+    
     plt.show()
     plt.close()
 
@@ -145,6 +249,41 @@ def heuristique_rapide(probleme, p):
     stations = choisirStations_aleatoire(probleme, p)
     cycle = tsp_plus_proche_voisin(matrice, stations, node_to_index)
     return cycle, stations
+
+# Wrapper pour l'optimisation sur p avec heuristique rapide
+def heuristique_rapide_optimisee(probleme, n_max_tests=None):
+    """Heuristique rapide avec optimisation du nombre de stations p"""
+    def methode(prob, p_val):
+        return heuristique_rapide(prob, p_val)
+    
+    return optimiserNombreStations(probleme, methode, n_max_tests)
+
+# Wrapper pour l'optimisation sur p avec amélioration locale
+def amelioration_locale_optimisee(probleme, n_max_tests=None, max_iter=100):
+    """Amélioration locale avec optimisation du nombre de stations p"""
+    def methode(prob, p_val):
+        # On part d'une heuristique rapide pour cette valeur de p
+        cycle_init, stations_init = heuristique_rapide(prob, p_val)
+        cycle, stations, cout = amelioration_locale(prob, p_val, cycle_init, stations_init, max_iter)
+        return cycle, stations, cout
+    
+    return optimiserNombreStations(probleme, methode, n_max_tests)
+
+# Wrapper pour l'optimisation sur p avec méthode exacte
+def methode_exacte_optimisee(probleme, n_max_tests=10):
+    """
+    Méthode exacte avec optimisation du nombre de stations p.
+    Par défaut, limite à 10 tests car la méthode exacte est très lente.
+    """
+    def methode(prob, p_val):
+        return methode_exacte(prob, p_val)
+    
+    # Pour la méthode exacte, on limite le nombre de tests par défaut
+    n = len(probleme.node_coords)
+    if n_max_tests is None:
+        n_max_tests = min(10, n - 2)  # Maximum 10 tests ou n-2 si plus petit
+    
+    return optimiserNombreStations(probleme, methode, n_max_tests)
 
 
 # =========================
@@ -335,21 +474,24 @@ def methode_exacte(probleme, p):
 # Petit main de test
 def main():
     fichier = "data/ulysses16.tsp"
-    p = 4
 
     probleme = chargerInstance(fichier)
+    
+    # Calcul automatique du nombre de stations
+    p = calculerNombreStations(probleme)
+    print(f"Nombre de nœuds : {len(probleme.node_coords)}, K = {p} (calculé automatiquement)")
 
     # Heuristique rapide
     cycle_h, stations_h = heuristique_rapide(probleme, p)
-    afficherSolution(probleme, cycle_h, stations_h)
+    afficherSolution(probleme, cycle_h, stations_h, methode="heuristique")
 
     # Amélioration locale
     cycle_c, stations_c, cout_c = amelioration_locale(probleme, p, cycle_h, stations_h)
-    afficherSolution(probleme, cycle_c, stations_c)
+    afficherSolution(probleme, cycle_c, stations_c, methode="amelioration_locale")
 
     # Méthode exacte (attention plus lente)
     cycle_d, stations_d = methode_exacte(probleme, p)
-    afficherSolution(probleme, cycle_d, stations_d)
+    afficherSolution(probleme, cycle_d, stations_d, methode="exact")
 
 
 if __name__ == "__main__":
