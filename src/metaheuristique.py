@@ -19,8 +19,9 @@ def main():
 
     probleme = chargerInstance(chemin)
 
-    print(f"=== Métaheuristique (amélioration locale avec optimisation du nombre de stations) ===")
-    print(f"Fichier : {fichier}, Nombre de nœuds : {len(probleme.node_coords)}")
+    print(f"=== Amélioration locale pour Ring-Star ===")
+    print(f"Fichier : {fichier}")
+    print(f"Nombre de nœuds : {len(probleme.node_coords)}")
     
     debut = time.time()
     p_optimal, cycle, stations, cout = amelioration_locale_optimisee(probleme)

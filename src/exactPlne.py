@@ -19,9 +19,10 @@ def main():
 
     probleme = chargerInstance(chemin)
 
-    print(f"=== Méthode exacte (PLNE avec optimisation du nombre de stations) ===")
-    print(f"Fichier : {fichier}, Nombre de nœuds : {len(probleme.node_coords)}")
-    print("Résolution en cours... (peut prendre du temps)")
+    print(f"=== Résolution exacte du problème Ring-Star (PLNE) ===")
+    print(f"Fichier : {fichier}")
+    print(f"Nombre de nœuds : {len(probleme.node_coords)}")
+    print("Résolution en cours... (peut prendre du temps pour les grandes instances)")
     
     debut = time.time()
     p_optimal, cycle, stations, cout = methode_exacte_optimisee(probleme)

@@ -24,16 +24,15 @@ def calculerNombreStations(probleme):
     return k
 
 # Fonction pour optimiser le nombre de stations p en testant différentes valeurs
-# et en choisissant celle qui minimise le coût total
-# Pour les grandes instances, on teste un échantillon de valeurs autour de √n
-def optimiserNombreStations(probleme, methode_resolution, n_max_tests=None):
+# Version simplifiée : teste quelques valeurs autour de √n
+def optimiserNombreStations(probleme, methode_resolution, n_max_tests=5):
     """
-    Optimise le nombre de stations p en testant différentes valeurs.
+    Optimise le nombre de stations p en testant quelques valeurs autour de √n.
     
     Args:
         probleme: Instance TSP
         methode_resolution: Fonction qui prend (probleme, p) et retourne (cycle, stations) ou (cycle, stations, cout)
-        n_max_tests: Nombre maximum de valeurs de p à tester (None = tester toutes de 3 à n)
+        n_max_tests: Nombre maximum de valeurs de p à tester (défaut: 5)
     
     Returns:
         (p_optimal, cycle, stations, cout_optimal)
@@ -41,32 +40,29 @@ def optimiserNombreStations(probleme, methode_resolution, n_max_tests=None):
     n = len(probleme.node_coords)
     matrice, index_to_node, node_to_index = obtenirMatriceDistances(probleme)
     
-    # Déterminer les valeurs de p à tester
-    if n_max_tests is None or n <= 50:
-        # Pour les petites instances, tester toutes les valeurs de 3 à n
-        valeurs_p = list(range(3, n + 1))
+    # Valeur de base : √n (arrondi)
+    p_base = max(3, math.ceil(math.sqrt(n)))
+    
+    # Tester quelques valeurs autour de p_base
+    valeurs_p = []
+    # Pour les petites instances, tester toutes les valeurs de 3 à n
+    if n <= 20:
+        valeurs_p = list(range(3, min(n + 1, 10)))
     else:
-        # Pour les grandes instances, tester un échantillon autour de √n
-        p_centre = max(3, math.ceil(math.sqrt(n)))
-        # Tester autour de √n avec un rayon
-        rayon = min(n_max_tests // 2, n // 4)
-        valeurs_p = []
-        # Ajouter des valeurs autour de √n
-        for i in range(max(3, p_centre - rayon), min(n + 1, p_centre + rayon + 1)):
-            valeurs_p.append(i)
-        # Ajouter quelques valeurs aux extrémités
+        # Pour les grandes instances, tester autour de √n
+        demi_range = n_max_tests // 2
+        valeurs_p = list(range(max(3, p_base - demi_range), min(n + 1, p_base + demi_range + 1)))
+        # S'assurer d'avoir au moins 3 et au plus n
         if 3 not in valeurs_p:
-            valeurs_p.append(3)
-        if n not in valeurs_p and n >= 3:
-            valeurs_p.append(n)
-        valeurs_p = sorted(set(valeurs_p))
+            valeurs_p.insert(0, 3)
+        valeurs_p = sorted(set(valeurs_p))[:n_max_tests]
     
     meilleur_p = None
     meilleur_cycle = None
     meilleures_stations = None
     meilleur_cout = float('inf')
     
-    print(f"Optimisation du nombre de stations : test de {len(valeurs_p)} valeurs de p...")
+    print(f"Test de {len(valeurs_p)} valeurs de p : {valeurs_p}")
     
     for p in valeurs_p:
         try:
@@ -83,25 +79,26 @@ def optimiserNombreStations(probleme, methode_resolution, n_max_tests=None):
                 meilleur_p = p
                 meilleur_cycle = cycle
                 meilleures_stations = stations
-                print(f"  p={p}: coût={cout:.2f} ✓ (nouveau meilleur)")
+                print(f"  p={p}: coût={cout:.2f} ✓ (meilleur)")
             else:
                 print(f"  p={p}: coût={cout:.2f}")
         except Exception as e:
             print(f"  p={p}: erreur - {e}")
             continue
     
+    # Si aucune solution trouvée, utiliser la valeur par défaut
     if meilleur_p is None:
-        # Fallback : utiliser la valeur par défaut
         p_default = calculerNombreStations(probleme)
         result = methode_resolution(probleme, p_default)
         if len(result) == 3:
-            cycle, stations, _ = result
+            cycle, stations, cout = result
         else:
             cycle, stations = result
+            cout = cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_index)
         meilleur_p = p_default
         meilleur_cycle = cycle
         meilleures_stations = stations
-        meilleur_cout = cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_index)
+        meilleur_cout = cout
     
     return meilleur_p, meilleur_cycle, meilleures_stations, meilleur_cout
 
@@ -109,6 +106,46 @@ def optimiserNombreStations(probleme, methode_resolution, n_max_tests=None):
 def creerGraphe(probleme):
     g = probleme.get_graph()
     return g
+
+# Fonction pour afficher le nuage de points (sans solution)
+def afficherNuagePoints(probleme):
+    """
+    Affiche simplement le nuage de points de l'instance TSP.
+    Utile pour visualiser les données avant résolution.
+    """
+    coords = probleme.node_coords
+    if not coords:
+        print("⚠️  Pas de coordonnées disponibles pour cette instance")
+        return
+    
+    # Extraire les coordonnées
+    x_coords = [coords[node][0] for node in coords.keys()]
+    y_coords = [coords[node][1] for node in coords.keys()]
+    
+    plt.figure(figsize=(10, 8))
+    plt.scatter(x_coords, y_coords, c='blue', s=50, alpha=0.6)
+    
+    # Annoter les points avec leur numéro
+    for node, (x, y) in coords.items():
+        plt.annotate(str(node), (x, y), fontsize=8, ha='center', va='center')
+    
+    plt.title(f"Nuage de points - {probleme.name}")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.grid(True, alpha=0.3)
+    plt.axis("equal")
+    
+    # Créer le dossier img/ s'il n'existe pas
+    os.makedirs("img", exist_ok=True)
+    
+    # Sauvegarder l'image
+    nom_fichier = f"img/NuagePoints_{probleme.name}.png"
+    plt.savefig(nom_fichier, dpi=150, bbox_inches='tight')
+    print(f"Nuage de points sauvegardé : {nom_fichier}")
+    
+    plt.show()
+    plt.close()
+
 
 # Fonction pour afficher le graphe
 def afficherGraphe(graphe, probleme):
@@ -217,13 +254,32 @@ def afficherSolution(probleme, cycle, stations, methode="solution"):
 # Brique B : heuristique rapide
 # =========================
 def choisirStations_aleatoire(probleme, p):
+    """
+    Choisit p stations aléatoirement parmi tous les nœuds.
+    IMPORTANT : Le sommet 1 (ou le premier sommet) est TOUJOURS une station.
+    """
     noeuds = list(probleme.node_coords.keys())
-    return random.sample(noeuds, p)
+    # Le premier sommet (1 ou 0 selon la numérotation) est toujours une station
+    premier_sommet = noeuds[0]
+    autres_noeuds = [n for n in noeuds if n != premier_sommet]
+    # Choisir p-1 stations parmi les autres
+    autres_stations = random.sample(autres_noeuds, min(p - 1, len(autres_noeuds)))
+    return [premier_sommet] + autres_stations
 
 
 def tsp_plus_proche_voisin(matrice, stations, node_to_index):
+    """
+    Construit un cycle (anneau) sur les stations en utilisant l'heuristique 
+    du plus proche voisin.
+    IMPORTANT : Le cycle commence toujours par le premier sommet (station 1).
+    """
+    if not stations:
+        return []
+    
+    # Le premier sommet (station 1) doit être le point de départ
+    premier_sommet = stations[0]
     non_visites = set(stations)
-    courant = stations[0]
+    courant = premier_sommet
     cycle = [courant]
     non_visites.remove(courant)
 
@@ -245,6 +301,12 @@ def tsp_plus_proche_voisin(matrice, stations, node_to_index):
 
 
 def heuristique_rapide(probleme, p):
+    """
+    Heuristique rapide pour Ring-Star :
+    1. Choisit p stations aléatoirement
+    2. Construit un cycle sur ces stations (plus proche voisin)
+    3. Les clients sont automatiquement affectés à la station la plus proche
+    """
     matrice, index_to_node, node_to_index = obtenirMatriceDistances(probleme)
     stations = choisirStations_aleatoire(probleme, p)
     cycle = tsp_plus_proche_voisin(matrice, stations, node_to_index)
@@ -290,9 +352,15 @@ def methode_exacte_optimisee(probleme, n_max_tests=10):
 # Brique C : amélioration locale
 # =========================
 def cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_index):
+    """
+    Calcule le coût total d'une solution Ring-Star :
+    - Coût de l'anneau (cycle entre stations)
+    - Coût des étoiles (distance de chaque client à sa station la plus proche)
+    """
     if not stations or not cycle:
         return float('inf')
     
+    # Coût de l'anneau : somme des distances entre stations consécutives
     cout_anneau = 0.0
     p = len(cycle)
     for k in range(p):
@@ -300,6 +368,7 @@ def cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_ind
         v = cycle[(k + 1) % p]
         cout_anneau += matrice[node_to_index[u]][node_to_index[v]]
 
+    # Coût des étoiles : chaque client est affecté à la station la plus proche
     coords = probleme.node_coords
     clients = [n for n in coords if n not in stations]
     cout_etoiles = 0.0
@@ -312,6 +381,13 @@ def cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_ind
 
 
 def amelioration_locale(probleme, p, cycle_init, stations_init, max_iter=100):
+    """
+    Amélioration locale par échange de stations :
+    - Pour chaque station (SAUF le premier sommet), teste de la remplacer par un client
+    - Garde l'amélioration si elle réduit le coût
+    - S'arrête quand plus d'amélioration possible ou max_iter atteint
+    IMPORTANT : Le premier sommet reste toujours une station.
+    """
     matrice, index_to_node, node_to_index = obtenirMatriceDistances(probleme)
     cycle = cycle_init[:]
     stations = stations_init[:]
@@ -319,22 +395,34 @@ def amelioration_locale(probleme, p, cycle_init, stations_init, max_iter=100):
 
     coords = probleme.node_coords
     tous = list(coords.keys())
+    premier_sommet = tous[0]  # Le premier sommet ne peut pas être échangé
 
-    for _ in range(max_iter):
+    for iteration in range(max_iter):
         amelioration = False
         for s in stations:
+            # Ne jamais échanger le premier sommet (toujours une station)
+            if s == premier_sommet:
+                continue
             for c in tous:
                 if c in stations:
                     continue
+                # Tester de remplacer la station s par le client c
                 nouvelles_stations = stations[:]
                 nouvelles_stations.remove(s)
                 nouvelles_stations.append(c)
+                # S'assurer que le premier sommet est toujours présent
+                if premier_sommet not in nouvelles_stations:
+                    nouvelles_stations.insert(0, premier_sommet)
+                    if len(nouvelles_stations) > p:
+                        nouvelles_stations = nouvelles_stations[:p]
 
+                # Reconstruire le cycle avec les nouvelles stations
                 nouveau_cycle = tsp_plus_proche_voisin(matrice, nouvelles_stations, node_to_index)
                 cout_new = cout_solution(
                     probleme, nouveau_cycle, nouvelles_stations, matrice, index_to_node, node_to_index
                 )
 
+                # Si amélioration, accepter le changement
                 if cout_new < cout_actuel:
                     stations = nouvelles_stations
                     cycle = nouveau_cycle
@@ -375,96 +463,162 @@ def reconstruire_cycle_depuis_arcs(edges_metro, stations):
 
 
 def methode_exacte(probleme, p):
+    """
+    Résolution exacte du problème Ring-Star par PLNE (Formulation Compacte).
+    
+    Variables (selon PDF page 6) :
+    - z[i] = y_{ii} = 1 si le nœud i est une station, 0 sinon
+    - y[i][j] = 1 si le client i est affecté à la station j, 0 sinon
+    - x[i][j] = 1 si l'arête (i,j) est dans l'anneau, 0 sinon
+    - u[i] = variables MTZ pour éviter les sous-tours
+    
+    Contraintes implémentées (PDF page 6) :
+    - (1) Exactement p stations
+    - (2) Chaque nœud affecté à exactement une station
+    - (3) On ne peut affecter qu'à une station (y_{ij} ≤ y_{jj})
+    - (4) Contraintes de degré pour l'anneau (2 arêtes par station)
+    - (5) Les arcs de l'anneau ne peuvent exister qu'entre stations
+    - (6) Élimination des sous-tours (formulation MTZ)
+    - (9) Inégalités de renforcement (ajoutées en dur)
+    - CONTRAINTE FIXE : Le sommet 1 est toujours une station
+    
+    Objectif : Minimiser coût(anneau) + coût(affectations)
+    """
     matrice, index_to_node, node_to_index = obtenirMatriceDistances(probleme)
     noeuds = list(index_to_node.values())
     n = len(noeuds)
 
+    # Créer le modèle PLNE
     model = pulp.LpProblem("RingStar", pulp.LpMinimize)
 
-    # Variables
-    x = pulp.LpVariable.dicts("x", (noeuds, noeuds), 0, 1, cat="Binary")  # arêtes orientées de l'anneau
-    z = pulp.LpVariable.dicts("z", noeuds, 0, 1, cat="Binary")  # station ou non
-    y = pulp.LpVariable.dicts("y", (noeuds, noeuds), 0, 1, cat="Binary")  # affectation client -> station
-    u = pulp.LpVariable.dicts("u", noeuds, lowBound=0, upBound=n, cat="Continuous")  # MTZ
+    # ===== VARIABLES DE DÉCISION =====
+    # x[i][j] = 1 si l'arête (i->j) est dans l'anneau, 0 sinon
+    x = pulp.LpVariable.dicts("x", (noeuds, noeuds), 0, 1, cat="Binary")
+    
+    # z[i] = 1 si le nœud i est une station, 0 sinon
+    z = pulp.LpVariable.dicts("z", noeuds, 0, 1, cat="Binary")
+    
+    # y[i][j] = 1 si le client i est affecté à la station j, 0 sinon
+    y = pulp.LpVariable.dicts("y", (noeuds, noeuds), 0, 1, cat="Binary")
+    
+    # u[i] : variables pour éviter les sous-tours (MTZ)
+    u = pulp.LpVariable.dicts("u", noeuds, lowBound=0, upBound=n, cat="Continuous")
 
-    # Objectif : coût anneau + coût étoiles
+    # ===== FONCTION OBJECTIF =====
+    # Minimiser : coût de l'anneau + coût des étoiles
     cout_anneau = pulp.lpSum(
-        matrice[node_to_index[i]][node_to_index[j]] * x[i][j] for i in noeuds for j in noeuds if i != j
+        matrice[node_to_index[i]][node_to_index[j]] * x[i][j] 
+        for i in noeuds for j in noeuds if i != j
     )
     cout_etoiles = pulp.lpSum(
-        matrice[node_to_index[i]][node_to_index[j]] * y[i][j] for i in noeuds for j in noeuds
+        matrice[node_to_index[i]][node_to_index[j]] * y[i][j] 
+        for i in noeuds for j in noeuds
     )
     model += cout_anneau + cout_etoiles
 
-    # 1) nombre de stations = p
+    # ===== CONTRAINTES =====
+    
+    # (1) Exactement p stations
     model += pulp.lpSum(z[i] for i in noeuds) == p
 
-    # 2) affectation unique de chaque noeud à une station
+    # CONTRAINTE FIXE : Le sommet 1 (premier sommet) est TOUJOURS une station
+    premier_sommet = noeuds[0]
+    model += z[premier_sommet] == 1
+    # Le premier sommet ne peut pas être affecté à une autre station
+    for j in noeuds:
+        if j != premier_sommet:
+            model += y[premier_sommet][j] == 0
+
+    # (2) Chaque nœud est affecté à exactement une station
     for i in noeuds:
         model += pulp.lpSum(y[i][j] for j in noeuds) == 1
 
-    # 3) affectation seulement si j est station
+    # (3) On ne peut affecter un client qu'à une station (z[j] = 1)
     for i in noeuds:
         for j in noeuds:
             model += y[i][j] <= z[j]
 
-    # 4) contraintes d'anneau : degré entrant = 1 et sortant = 1 pour les stations, 0 sinon
+    # (4) Contraintes de degré pour l'anneau (PDF page 6) :
+    #     ∑_{ij∈δ(i)} x_{ij} = 2y_{ii} ∀i ∈ V
+    #     Chaque station a exactement 2 arêtes incidentes (une entrante, une sortante)
+    #     Les non-stations n'ont aucune arête dans l'anneau
     for i in noeuds:
+        # Degré sortant = 1 si station, 0 sinon
         model += pulp.lpSum(x[i][j] for j in noeuds if i != j) == z[i]
+        # Degré entrant = 1 si station, 0 sinon  
         model += pulp.lpSum(x[j][i] for j in noeuds if i != j) == z[i]
+        # Total = 2*z[i] = 2 arêtes si station (conforme à la contrainte (4) du PDF)
 
-    # 5) l'arête ne peut exister que si les deux sont stations
+    # (5) Les arcs de l'anneau ne peuvent exister qu'entre stations
     for i in noeuds:
         for j in noeuds:
             if i == j:
-                model += x[i][j] == 0
+                model += x[i][j] == 0  # Pas de boucle
             else:
-                model += x[i][j] <= z[i]
-                model += x[i][j] <= z[j]
+                model += x[i][j] <= z[i]  # i doit être station
+                model += x[i][j] <= z[j]  # j doit être station
 
-    # 6) élimination des sous-tours (MTZ) sur les stations
-    #    u est défini pour tous les noeuds mais activé seulement si z=1
+    # (9) Inégalités de renforcement (ajoutées en dur comme recommandé)
+    # yjj >= xij pour tout i != 1, j
     for i in noeuds:
+        if i != premier_sommet:
+            for j in noeuds:
+                model += z[j] >= x[i][j]
+
+    # (6) Élimination des sous-tours (formulation MTZ simplifiée)
+    #     On force un ordre sur les stations pour éviter plusieurs cycles
+    for i in noeuds:
+        # u[i] n'est actif que si i est une station
         model += u[i] <= p * z[i]
-        model += u[i] >= z[i]  # u[i] >= 1 si z[i] = 1, sinon u[i] >= 0
+        model += u[i] >= z[i]
     
-    # Contrainte MTZ : u[i] - u[j] + p*x[i][j] <= p - 1
-    # Cette contrainte s'applique seulement quand x[i][j] = 1
+    # Contrainte MTZ : si x[i][j] = 1, alors u[i] < u[j] (force un ordre)
     for i in noeuds:
         for j in noeuds:
             if i != j:
-                # Si x[i][j] = 1, alors u[i] - u[j] <= -1, ce qui force un ordre
                 model += u[i] - u[j] + p * x[i][j] <= p - 1
 
-    # Résolution
+    # ===== RÉSOLUTION =====
     model.solve(pulp.PULP_CBC_CMD(msg=False))
 
-    # Vérifier le statut de la résolution
+    # ===== EXTRACTION DE LA SOLUTION =====
     status = model.status
     if status != pulp.LpStatusOptimal:
-        print(f"Attention : Le solveur n'a pas trouvé de solution optimale. Statut : {pulp.LpStatus[status]}")
-        print("Retour à une solution heuristique...")
-        # Fallback : utiliser l'heuristique
+        print(f"⚠️  Le solveur n'a pas trouvé de solution optimale. Statut : {pulp.LpStatus[status]}")
+        print("   Utilisation d'une solution heuristique à la place...")
         cycle, stations = heuristique_rapide(probleme, p)
         return cycle, stations
 
+    # Extraire les stations
     stations = [i for i in noeuds if pulp.value(z[i]) is not None and pulp.value(z[i]) > 0.5]
 
-    if not stations:
-        print("Attention : Aucune station trouvée dans la solution. Retour à une solution heuristique...")
+    # Vérifier que le premier sommet est bien une station
+    premier_sommet = noeuds[0]
+    if premier_sommet not in stations:
+        stations.insert(0, premier_sommet)
+        if len(stations) > p:
+            # Retirer une station si on en a trop
+            stations = [premier_sommet] + [s for s in stations[1:] if s != premier_sommet][:p-1]
+
+    if not stations or len(stations) != p:
+        print(f"⚠️  Problème avec les stations trouvées ({len(stations)} au lieu de {p})")
+        print("   Utilisation d'une solution heuristique à la place...")
         cycle, stations = heuristique_rapide(probleme, p)
         return cycle, stations
 
+    # Extraire les arcs de l'anneau
     edges_metro = []
     for i in noeuds:
         for j in noeuds:
             if i != j and pulp.value(x[i][j]) is not None and pulp.value(x[i][j]) > 0.5:
                 edges_metro.append((i, j))
 
+    # Reconstruire le cycle à partir des arcs
     cycle = reconstruire_cycle_depuis_arcs(edges_metro, stations)
     
-    if not cycle:
-        print("Attention : Cycle vide. Retour à une solution heuristique...")
+    if not cycle or len(cycle) != p:
+        print(f"⚠️  Problème avec le cycle reconstruit ({len(cycle) if cycle else 0} stations au lieu de {p})")
+        print("   Utilisation d'une solution heuristique à la place...")
         cycle, stations = heuristique_rapide(probleme, p)
         return cycle, stations
     

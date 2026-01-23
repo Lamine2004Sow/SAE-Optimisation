@@ -20,8 +20,9 @@ def main():
 
     probleme = chargerInstance(chemin)
 
-    print(f"=== Heuristique rapide (avec optimisation du nombre de stations) ===")
-    print(f"Fichier : {fichier}, Nombre de nœuds : {len(probleme.node_coords)}")
+    print(f"=== Heuristique rapide pour Ring-Star ===")
+    print(f"Fichier : {fichier}")
+    print(f"Nombre de nœuds : {len(probleme.node_coords)}")
     
     debut = time.time()
     p_optimal, cycle, stations, cout = heuristique_rapide_optimisee(probleme)
