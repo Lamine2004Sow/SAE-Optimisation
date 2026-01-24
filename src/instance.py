@@ -16,91 +16,10 @@ def chargerInstance(fichier):
 # Fonction pour calculer automatiquement le nombre de stations K
 # Formule : K = max(3, ⌈√n⌉) où n est le nombre de nœuds
 # Cela garantit K >= 3 et est proportionnel à la taille de l'instance
-# NOTE: Cette fonction donne une valeur initiale, mais pour vraiment minimiser le coût,
-# il faut utiliser optimiserNombreStations() qui teste différentes valeurs de p
 def calculerNombreStations(probleme):
     n = len(probleme.node_coords)
     k = max(3, math.ceil(math.sqrt(n)))
     return k
-
-# Fonction pour optimiser le nombre de stations p en testant différentes valeurs
-# Version simplifiée : teste quelques valeurs autour de √n
-def optimiserNombreStations(probleme, methode_resolution, n_max_tests=5):
-    """
-    Optimise le nombre de stations p en testant quelques valeurs autour de √n.
-    
-    Args:
-        probleme: Instance TSP
-        methode_resolution: Fonction qui prend (probleme, p) et retourne (cycle, stations) ou (cycle, stations, cout)
-        n_max_tests: Nombre maximum de valeurs de p à tester (défaut: 5)
-    
-    Returns:
-        (p_optimal, cycle, stations, cout_optimal)
-    """
-    n = len(probleme.node_coords)
-    matrice, index_to_node, node_to_index = obtenirMatriceDistances(probleme)
-    
-    # Valeur de base : √n (arrondi)
-    p_base = max(3, math.ceil(math.sqrt(n)))
-    
-    # Tester quelques valeurs autour de p_base
-    valeurs_p = []
-    # Pour les petites instances, tester toutes les valeurs de 3 à n
-    if n <= 20:
-        valeurs_p = list(range(3, min(n + 1, 10)))
-    else:
-        # Pour les grandes instances, tester autour de √n
-        demi_range = n_max_tests // 2
-        valeurs_p = list(range(max(3, p_base - demi_range), min(n + 1, p_base + demi_range + 1)))
-        # S'assurer d'avoir au moins 3 et au plus n
-        if 3 not in valeurs_p:
-            valeurs_p.insert(0, 3)
-        valeurs_p = sorted(set(valeurs_p))[:n_max_tests]
-    
-    meilleur_p = None
-    meilleur_cycle = None
-    meilleures_stations = None
-    meilleur_cout = float('inf')
-    
-    print(f"Test de {len(valeurs_p)} valeurs de p : {valeurs_p}")
-    
-    for p in valeurs_p:
-        try:
-            result = methode_resolution(probleme, p)
-            # Gérer les deux formats de retour possibles
-            if len(result) == 3:
-                cycle, stations, cout = result
-            else:
-                cycle, stations = result
-                cout = cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_index)
-            
-            if cout < meilleur_cout:
-                meilleur_cout = cout
-                meilleur_p = p
-                meilleur_cycle = cycle
-                meilleures_stations = stations
-                print(f"  p={p}: coût={cout:.2f} ✓ (meilleur)")
-            else:
-                print(f"  p={p}: coût={cout:.2f}")
-        except Exception as e:
-            print(f"  p={p}: erreur - {e}")
-            continue
-    
-    # Si aucune solution trouvée, utiliser la valeur par défaut
-    if meilleur_p is None:
-        p_default = calculerNombreStations(probleme)
-        result = methode_resolution(probleme, p_default)
-        if len(result) == 3:
-            cycle, stations, cout = result
-        else:
-            cycle, stations = result
-            cout = cout_solution(probleme, cycle, stations, matrice, index_to_node, node_to_index)
-        meilleur_p = p_default
-        meilleur_cycle = cycle
-        meilleures_stations = stations
-        meilleur_cout = cout
-    
-    return meilleur_p, meilleur_cycle, meilleures_stations, meilleur_cout
 
 # Fonction pour créer le graphe de l'instance
 def creerGraphe(probleme):
@@ -312,41 +231,6 @@ def heuristique_rapide(probleme, p):
     cycle = tsp_plus_proche_voisin(matrice, stations, node_to_index)
     return cycle, stations
 
-# Wrapper pour l'optimisation sur p avec heuristique rapide
-def heuristique_rapide_optimisee(probleme, n_max_tests=None):
-    """Heuristique rapide avec optimisation du nombre de stations p"""
-    def methode(prob, p_val):
-        return heuristique_rapide(prob, p_val)
-    
-    return optimiserNombreStations(probleme, methode, n_max_tests)
-
-# Wrapper pour l'optimisation sur p avec amélioration locale
-def amelioration_locale_optimisee(probleme, n_max_tests=None, max_iter=100):
-    """Amélioration locale avec optimisation du nombre de stations p"""
-    def methode(prob, p_val):
-        # On part d'une heuristique rapide pour cette valeur de p
-        cycle_init, stations_init = heuristique_rapide(prob, p_val)
-        cycle, stations, cout = amelioration_locale(prob, p_val, cycle_init, stations_init, max_iter)
-        return cycle, stations, cout
-    
-    return optimiserNombreStations(probleme, methode, n_max_tests)
-
-# Wrapper pour l'optimisation sur p avec méthode exacte
-def methode_exacte_optimisee(probleme, n_max_tests=10):
-    """
-    Méthode exacte avec optimisation du nombre de stations p.
-    Par défaut, limite à 10 tests car la méthode exacte est très lente.
-    """
-    def methode(prob, p_val):
-        return methode_exacte(prob, p_val)
-    
-    # Pour la méthode exacte, on limite le nombre de tests par défaut
-    n = len(probleme.node_coords)
-    if n_max_tests is None:
-        n_max_tests = min(10, n - 2)  # Maximum 10 tests ou n-2 si plus petit
-    
-    return optimiserNombreStations(probleme, methode, n_max_tests)
-
 
 # =========================
 # Brique C : amélioration locale
@@ -470,7 +354,7 @@ def methode_exacte(probleme, p):
     - z[i] = y_{ii} = 1 si le nœud i est une station, 0 sinon
     - y[i][j] = 1 si le client i est affecté à la station j, 0 sinon
     - x[i][j] = 1 si l'arête (i,j) est dans l'anneau, 0 sinon
-    - u[i] = variables MTZ pour éviter les sous-tours
+    - f[i][j] = flot circulant sur l'arc (i,j) pour assurer la connexité (formulation par flots)
     
     Contraintes implémentées (PDF page 6) :
     - (1) Exactement p stations
@@ -478,7 +362,7 @@ def methode_exacte(probleme, p):
     - (3) On ne peut affecter qu'à une station (y_{ij} ≤ y_{jj})
     - (4) Contraintes de degré pour l'anneau (2 arêtes par station)
     - (5) Les arcs de l'anneau ne peuvent exister qu'entre stations
-    - (6) Élimination des sous-tours (formulation MTZ)
+    - (5)–(7) Contraintes de flot pour éliminer les sous-tours
     - (9) Inégalités de renforcement (ajoutées en dur)
     - CONTRAINTE FIXE : Le sommet 1 est toujours une station
     
@@ -501,8 +385,9 @@ def methode_exacte(probleme, p):
     # y[i][j] = 1 si le client i est affecté à la station j, 0 sinon
     y = pulp.LpVariable.dicts("y", (noeuds, noeuds), 0, 1, cat="Binary")
     
-    # u[i] : variables pour éviter les sous-tours (MTZ)
-    u = pulp.LpVariable.dicts("u", noeuds, lowBound=0, upBound=n, cat="Continuous")
+    # f[i][j] : variables de flot pour assurer la connexité (formulation par flots)
+    # Bornées entre 0 et p-1 comme dans la formulation compacte
+    f = pulp.LpVariable.dicts("f", (noeuds, noeuds), lowBound=0, upBound=p - 1, cat="Continuous")
 
     # ===== FONCTION OBJECTIF =====
     # Minimiser : coût de l'anneau + coût des étoiles
@@ -538,6 +423,11 @@ def methode_exacte(probleme, p):
         for j in noeuds:
             model += y[i][j] <= z[j]
 
+    # Lier explicitement z[i] et y[i][i] comme dans la formulation du p-médian :
+    # z[i] = y_{ii} pour tout i
+    for i in noeuds:
+        model += z[i] == y[i][i]
+
     # (4) Contraintes de degré pour l'anneau (PDF page 6) :
     #     ∑_{ij∈δ(i)} x_{ij} = 2y_{ii} ∀i ∈ V
     #     Chaque station a exactement 2 arêtes incidentes (une entrante, une sortante)
@@ -565,18 +455,26 @@ def methode_exacte(probleme, p):
             for j in noeuds:
                 model += z[j] >= x[i][j]
 
-    # (6) Élimination des sous-tours (formulation MTZ simplifiée)
-    #     On force un ordre sur les stations pour éviter plusieurs cycles
+    # (5)–(7) Contraintes de flot pour éliminer les sous-tours (formulation compacte par flots)
+    # (5) Le sommet 1 envoie un flot total de valeur p-1
+    model += pulp.lpSum(f[premier_sommet][j] for j in noeuds if j != premier_sommet) == p - 1
+
+    # (6) Conservation du flot et décrémentation aux stations :
+    #     ∑_{j≠i} z_{ji} = ∑_{j≠1,i} z_{ij} + y_{ii}  pour tout i ≠ 1
     for i in noeuds:
-        # u[i] n'est actif que si i est une station
-        model += u[i] <= p * z[i]
-        model += u[i] >= z[i]
-    
-    # Contrainte MTZ : si x[i][j] = 1, alors u[i] < u[j] (force un ordre)
+        if i == premier_sommet:
+            continue
+        flux_entrant = pulp.lpSum(f[j][i] for j in noeuds if j != i)
+        flux_sortant = pulp.lpSum(f[i][j] for j in noeuds if j != premier_sommet and j != i)
+        model += flux_entrant == flux_sortant + y[i][i]
+
+    # (7) Capacité du flot sur les arcs :
+    #     z_{ij} + z_{ji} ≤ (p − 1) x_{ij}  pour tout i ∈ V, j ∈ V \ {1, i}
     for i in noeuds:
         for j in noeuds:
-            if i != j:
-                model += u[i] - u[j] + p * x[i][j] <= p - 1
+            if j == premier_sommet or j == i:
+                continue
+            model += f[i][j] + f[j][i] <= (p - 1) * x[i][j]
 
     # ===== RÉSOLUTION =====
     model.solve(pulp.PULP_CBC_CMD(msg=False))
